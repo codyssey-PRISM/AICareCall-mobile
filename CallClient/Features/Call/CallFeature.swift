@@ -18,6 +18,7 @@ struct CallFeature {
         enum CallState: Equatable {
             case loading
             case started
+            case ending
             case ended
         }
 
@@ -26,6 +27,7 @@ struct CallFeature {
         var isMuted: Bool = false
         var lastEventDescription: String = ""
         var callDuration: TimeInterval = 0
+        var showingEndCallAlert: Bool = false
     }
 
     // MARK: - Action
@@ -34,6 +36,8 @@ struct CallFeature {
         case onAppear
         case muteToggled
         case endCallButtonTapped
+        case confirmEndCall
+        case cancelEndCall
         case timerTick
 
         // Vapi 이벤트
@@ -56,7 +60,11 @@ struct CallFeature {
     @Dependency(\.callKitClient) var callKitClient
     @Dependency(\.continuousClock) var clock
     
-    private enum CancelID { case timer }
+    private enum CancelID { 
+        case timer
+        case vapiStream
+        case endingDelay
+    }
 
     // MARK: - Body
 
@@ -66,7 +74,7 @@ struct CallFeature {
 
             case .onAppear:
                 // 통화 시작
-                return .run { [uuid = state.callUUID] send in
+                return .run { send in
                     // Vapi 통화 시작
                     do {
                         try await vapiClient.start()
@@ -80,25 +88,49 @@ struct CallFeature {
                         await send(.vapiEvent(event))
                     }
                 }
+                .cancellable(id: CancelID.vapiStream)
 
             case .muteToggled:
                 let newMuted = !state.isMuted
                 state.isMuted = newMuted
 
-                return .run { _ in
-                    try await vapiClient.setMuted(newMuted)
+                return .run { send in
+                    do {
+                        try await vapiClient.setMuted(newMuted)
+                    } catch {
+                        print("❌ Mute toggle failed:", error)
+                        // 실패시 원래 상태로 되돌림
+                        await send(.muteToggled)
+                    }
                 }
 
             case .endCallButtonTapped:
+                // Alert 표시
+                state.showingEndCallAlert = true
+                return .none
+
+            case .cancelEndCall:
+                state.showingEndCallAlert = false
+                return .none
+
+            case .confirmEndCall:
+                state.showingEndCallAlert = false
+                state.callState = .ending
+                
                 // Vapi 통화 종료
                 vapiClient.stop()
-
-                // CallKit 통화 종료
-                return .run { [uuid = state.callUUID] send in
-                    await callKitClient.endCall(uuid)
-                    await send(.delegate(.callEnded))
-                }
-                .cancellable(id: CancelID.timer, cancelInFlight: true)
+                
+                // 모든 진행 중인 effect 취소 후 3초 대기 후 종료
+                return .concatenate(
+                    .cancel(id: CancelID.timer),
+                    .cancel(id: CancelID.vapiStream),
+                    .run { [uuid = state.callUUID] send in
+                        try await clock.sleep(for: .seconds(3))
+                        await callKitClient.endCall(uuid)
+                        await send(.delegate(.callEnded))
+                    }
+                    .cancellable(id: CancelID.endingDelay)
+                )
 
             // MARK: - Vapi Events
 
@@ -134,9 +166,15 @@ struct CallFeature {
                 .cancellable(id: CancelID.timer)
 
             case .vapiCallEnded:
+                // 이미 종료 중이면 무시 (confirmEndCall에서 처리)
+                guard state.callState != .ending else { return .none }
+                
                 state.callState = .ended
+                
+                // 모든 진행 중인 effect 취소
                 return .concatenate(
                     .cancel(id: CancelID.timer),
+                    .cancel(id: CancelID.vapiStream),
                     .send(.delegate(.callEnded))
                 )
 
@@ -144,8 +182,12 @@ struct CallFeature {
                 print("❌ Vapi error:", error)
                 state.callState = .ended
                 state.lastEventDescription = "Error: \(error.localizedDescription)"
+                
+                // 모든 진행 중인 effect 취소
                 return .concatenate(
                     .cancel(id: CancelID.timer),
+                    .cancel(id: CancelID.vapiStream),
+                    .cancel(id: CancelID.endingDelay),
                     .send(.delegate(.callEnded))
                 )
 

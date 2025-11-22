@@ -27,10 +27,14 @@ struct CallView: View {
                         .resizable()
                         .scaledToFit()
                         .frame(width: 150, height: 150)
+                        .opacity(store.callState == .loading || store.callState == .ending ? 0.5 : 1.0)
+                        .animation(.easeInOut(duration: 0.3), value: store.callState)
                     
                     // Sori AI 타이틀
                     Text("Sori AI")
                         .font(.system(size: 32, weight: .bold))
+                        .opacity(store.callState == .loading || store.callState == .ending ? 0.5 : 1.0)
+                        .animation(.easeInOut(duration: 0.3), value: store.callState)
                     
                     // 통화 시간
                     if store.callState == .started {
@@ -44,9 +48,21 @@ struct CallView: View {
                                 .monospacedDigit()
                         }
                     } else if store.callState == .loading {
-                        Text("연결 중...")
-                            .font(.system(size: 20, weight: .medium))
-                            .foregroundColor(.secondary)
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("연결 중...")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
+                    } else if store.callState == .ending {
+                        HStack(spacing: 8) {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                            Text("통화를 종료하는 중입니다")
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
                 
@@ -68,9 +84,12 @@ struct CallView: View {
                             .frame(width: 80, height: 80)
                             .background(Circle().fill(Color.gray.opacity(0.8)))
                         }
+                        .disabled(store.callState != .started)
+                        .opacity(store.callState == .started ? 1.0 : 0.4)
                         
                         Text(store.isMuted ? "음소거 해제" : "음소거")
                             .font(.system(size: 14))
+                            .opacity(store.callState == .started ? 1.0 : 0.4)
                     }
                     
                     Spacer()
@@ -88,9 +107,12 @@ struct CallView: View {
                             .frame(width: 80, height: 80)
                             .background(Circle().fill(Color.red))
                         }
+                        .disabled(store.callState == .ending)
+                        .opacity(store.callState == .ending ? 0.4 : 1.0)
                         
                         Text("통화 종료")
                             .font(.system(size: 14))
+                            .opacity(store.callState == .ending ? 0.4 : 1.0)
                     }
                     
                 }
@@ -101,6 +123,20 @@ struct CallView: View {
         .navigationBarBackButtonHidden(true)
         .onAppear {
             store.send(.onAppear)
+        }
+        .alert("통화 종료",
+               isPresented: .init(
+                   get: { store.showingEndCallAlert },
+                   set: { _ in store.send(.cancelEndCall) }
+               )) {
+            Button("취소", role: .cancel) {
+                store.send(.cancelEndCall)
+            }
+            Button("확인", role: .destructive) {
+                store.send(.confirmEndCall)
+            }
+        } message: {
+            Text("통화를 종료하시겠습니까?")
         }
     }
     
