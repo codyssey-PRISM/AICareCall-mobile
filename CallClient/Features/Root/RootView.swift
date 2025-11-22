@@ -17,6 +17,9 @@ struct RootView: View {
             case let .splash(store):
                 SplashView(store: store)
                 
+            case let .invitation(store):
+                InvitationView(store: store)
+                
             case let .home(store):
                 HomeView(store: store)
                 

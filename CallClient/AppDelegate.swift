@@ -12,6 +12,8 @@ import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
 
+    @Dependency(\.voipTokenClient) var voipTokenClient
+    
     var pushRegistry: PKPushRegistry?
     var rootStore: StoreOf<RootFeature>?
     
@@ -51,8 +53,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
         print("📞 VoIP token:", tokenString)
         
-        // 여기서 FastAPI 서버에 토큰 보내서 저장
-        // e.g. POST /register-voip-device { voip_token: tokenString }
+        // VoIPTokenClient를 통해 토큰 저장
+        Task {
+            await voipTokenClient.saveToken(tokenString)
+        }
     }
     
     func pushRegistry(_ registry: PKPushRegistry,
