@@ -17,12 +17,15 @@ struct RootFeature {
     struct State: Equatable {
         var destination: Destination.State = .splash(SplashFeature.State())
         var pendingCallUUID: UUID? = nil
+        var isInviteCodeVerified: Bool = false
     }
 
     // MARK: - Action
 
     enum Action {
         case onAppear
+        case loadAuthState
+        case authStateLoaded(String?)
         case destination(Destination.Action)
 
         // VoIP/CallKit 이벤트
@@ -35,12 +38,14 @@ struct RootFeature {
     // MARK: - Dependencies
 
     @Dependency(\.callKitClient) var callKitClient
+    @Dependency(\.authStateClient) var authStateClient
 
     // MARK: - Destination Reducer (최신 TCA 패턴)
 
     @Reducer(state: .equatable)
     enum Destination {
         case splash(SplashFeature)
+        case invitation(InvitationFeature)
         case home(HomeFeature)
         case call(CallFeature)
     }
@@ -58,23 +63,50 @@ struct RootFeature {
             // MARK: - Lifecycle
 
             case .onAppear:
-                // CallKit 이벤트 스트림 구독
-                return .run { send in
-                    for await event in callKitClient.eventStream() {
-                        await send(.callKitEvent(event))
+                // 인증 상태 로드 및 CallKit 이벤트 스트림 구독
+                return .merge(
+                    .send(.loadAuthState),
+                    .run { send in
+                        for await event in callKitClient.eventStream() {
+                            await send(.callKitEvent(event))
+                        }
                     }
+                )
+                
+            case .loadAuthState:
+                // AuthStateClient에서 인증 상태 로드
+                return .run { send in
+                    let authState = await authStateClient.getAuthState()
+                    await send(.authStateLoaded(authState))
                 }
+                
+            case .authStateLoaded(let inviteCode):
+                // 인증 상태 업데이트
+                state.isInviteCodeVerified = (inviteCode != nil)
+                print("✅ 인증 상태 로드됨:", state.isInviteCodeVerified ? "인증됨" : "미인증")
+                return .none
 
             // MARK: - Destination Actions
 
             case .destination(.splash(.delegate(.completed))):
-                // Splash 완료 → pending call이 있으면 Call로, 없으면 Home으로
+                // Splash 완료 → 초대 코드 검증 여부 확인
                 if let pendingUUID = state.pendingCallUUID {
+                    // pending call이 있으면 Call로
                     state.destination = .call(CallFeature.State(callUUID: pendingUUID))
                     state.pendingCallUUID = nil
-                } else {
+                } else if state.isInviteCodeVerified {
+                    // 초대 코드가 이미 검증되었으면 Home으로
                     state.destination = .home(HomeFeature.State())
+                } else {
+                    // 초대 코드 미검증이면 Invitation으로
+                    state.destination = .invitation(InvitationFeature.State())
                 }
+                return .none
+            
+            case .destination(.invitation(.delegate(.completed))):
+                // 초대 코드 인증 완료 → Home으로
+                state.isInviteCodeVerified = true
+                state.destination = .home(HomeFeature.State())
                 return .none
 
             case .destination(.home(.delegate(.startCall(let uuid)))):
