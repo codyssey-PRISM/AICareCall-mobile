@@ -25,6 +25,7 @@ struct CallFeature {
         var callState: CallState = .loading
         var isMuted: Bool = false
         var lastEventDescription: String = ""
+        var callDuration: TimeInterval = 0
     }
 
     // MARK: - Action
@@ -33,6 +34,7 @@ struct CallFeature {
         case onAppear
         case muteToggled
         case endCallButtonTapped
+        case timerTick
 
         // Vapi 이벤트
         case vapiEvent(VapiEvent)
@@ -52,6 +54,9 @@ struct CallFeature {
 
     @Dependency(\.vapiClient) var vapiClient
     @Dependency(\.callKitClient) var callKitClient
+    @Dependency(\.continuousClock) var clock
+    
+    private enum CancelID { case timer }
 
     // MARK: - Body
 
@@ -93,6 +98,7 @@ struct CallFeature {
                     await callKitClient.endCall(uuid)
                     await send(.delegate(.callEnded))
                 }
+                .cancellable(id: CancelID.timer, cancelInFlight: true)
 
             // MARK: - Vapi Events
 
@@ -116,17 +122,36 @@ struct CallFeature {
 
             case .vapiCallStarted:
                 state.callState = .started
-                return .none
+                state.callDuration = 0
+                
+                // 1초마다 타이머 업데이트
+                return .run { send in
+                    while true {
+                        try await clock.sleep(for: .seconds(1))
+                        await send(.timerTick)
+                    }
+                }
+                .cancellable(id: CancelID.timer)
 
             case .vapiCallEnded:
                 state.callState = .ended
-                return .send(.delegate(.callEnded))
+                return .concatenate(
+                    .cancel(id: CancelID.timer),
+                    .send(.delegate(.callEnded))
+                )
 
             case .vapiError(let error):
                 print("❌ Vapi error:", error)
                 state.callState = .ended
                 state.lastEventDescription = "Error: \(error.localizedDescription)"
-                return .send(.delegate(.callEnded))
+                return .concatenate(
+                    .cancel(id: CancelID.timer),
+                    .send(.delegate(.callEnded))
+                )
+
+            case .timerTick:
+                state.callDuration += 1
+                return .none
 
             case .delegate:
                 return .none
