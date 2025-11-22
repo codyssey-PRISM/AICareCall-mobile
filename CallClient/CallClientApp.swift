@@ -5,36 +5,25 @@
 //  Created by seungwooKim on 11/8/25.
 //
 
+import ComposableArchitecture
 import SwiftUI
 
 @main
 struct AiCallApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
-//    @StateObject private var callManager = VapiCallManager.shared
-    @State private var isInCallUI = false
+    static let store = Store(initialState: RootFeature.State()) {
+        RootFeature()
+            ._printChanges()
+    }
 
     var body: some Scene {
         WindowGroup {
-            Group {
-                if isInCallUI {
-                    CallScreen()
-                } else {
-                    HomeView(onTestCall: {
-                        isInCallUI = true
-//                        callManager.startCall()
-                    })
+            RootView(store: Self.store)
+                .onAppear {
+                    // AppDelegate에게 Store 참조 전달
+                    appDelegate.rootStore = Self.store
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .callKitDidAnswer)) { _ in
-                // 유저가 잠금 화면에서 "수락" 눌렀을 때
-                isInCallUI = true
-//                callManager.startCall()   // ✅ 여기서 Vapi 콜 시작
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .callKitDidEnd)) { _ in
-                isInCallUI = false
-//                callManager.stopCall()
-            }
         }
     }
 }
