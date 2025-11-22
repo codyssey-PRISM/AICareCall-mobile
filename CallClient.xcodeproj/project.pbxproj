@@ -6,6 +6,11 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C07E5BBC2EC20E1300FBBFDC /* Vapi in Frameworks */ = {isa = PBXBuildFile; productRef = C07E5BBB2EC20E1300FBBFDC /* Vapi */; };
+		C0D24D562ED0A246007FF21C /* ComposableArchitecture in Frameworks */ = {isa = PBXBuildFile; productRef = C0D24D552ED0A246007FF21C /* ComposableArchitecture */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		C07E5B572EBF7E4D00FBBFDC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -65,6 +70,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C0D24D562ED0A246007FF21C /* ComposableArchitecture in Frameworks */,
+				C07E5BBC2EC20E1300FBBFDC /* Vapi in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -125,6 +132,8 @@
 			);
 			name = CallClient;
 			packageProductDependencies = (
+				C07E5BBB2EC20E1300FBBFDC /* Vapi */,
+				C0D24D552ED0A246007FF21C /* ComposableArchitecture */,
 			);
 			productName = CallClient;
 			productReference = C07E5B492EBF7E4C00FBBFDC /* CallClient.app */;
@@ -208,6 +217,10 @@
 			);
 			mainGroup = C07E5B402EBF7E4C00FBBFDC;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C07E5BBA2EC20E1300FBBFDC /* XCRemoteSwiftPackageReference "ios" */,
+				C0D24D542ED0A246007FF21C /* XCRemoteSwiftPackageReference "swift-composable-architecture" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C07E5B4A2EBF7E4C00FBBFDC /* Products */;
 			projectDirPath = "";
@@ -415,6 +428,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CallClient/Info.plist;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AI 음성 통화를 위해 마이크가 필요합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -445,6 +459,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = CallClient/Info.plist;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "AI 음성 통화를 위해 마이크가 필요합니다.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -575,6 +590,38 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C07E5BBA2EC20E1300FBBFDC /* XCRemoteSwiftPackageReference "ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/VapiAI/ios";
+			requirement = {
+				branch = main;
+				kind = branch;
+			};
+		};
+		C0D24D542ED0A246007FF21C /* XCRemoteSwiftPackageReference "swift-composable-architecture" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/pointfreeco/swift-composable-architecture";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.23.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C07E5BBB2EC20E1300FBBFDC /* Vapi */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C07E5BBA2EC20E1300FBBFDC /* XCRemoteSwiftPackageReference "ios" */;
+			productName = Vapi;
+		};
+		C0D24D552ED0A246007FF21C /* ComposableArchitecture */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C0D24D542ED0A246007FF21C /* XCRemoteSwiftPackageReference "swift-composable-architecture" */;
+			productName = ComposableArchitecture;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C07E5B412EBF7E4C00FBBFDC /* Project object */;
 }
