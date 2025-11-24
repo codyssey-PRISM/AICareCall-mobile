@@ -122,7 +122,7 @@ struct InvitationFeature {
                 print("📧 코드 재발송 요청")
                 return .none
                 
-            case .verifyCodeResponse(.success):
+            case .verifyCodeResponse(.success(let response)):
                 state.isLoading = false
                 state.errorMessage = nil
                 
@@ -133,6 +133,11 @@ struct InvitationFeature {
                 
                 return .run { _ in
                     await authStateClient.saveAuthState(inviteCode)
+                    // elder_id 저장
+                    if let elderId = response.elder_id {
+                        await authStateClient.saveElderId(elderId)
+                        print("✅ Elder ID \(elderId) 저장 완료")
+                    }
                 }
                 
             case .successAlertConfirmTapped:
@@ -169,5 +174,7 @@ struct InvitationFeature {
 struct VerifyCodeResponse: Codable, Equatable {
     let success: Bool
     let message: String?
+    let elder_id: Int?
+    let elder_name: String?
 }
 

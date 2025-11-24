@@ -15,6 +15,8 @@ struct AuthStateClient {
     var saveAuthState: @Sendable (String) async -> Void
     var getAuthState: @Sendable () async -> String?
     var clearAuthState: @Sendable () async -> Void
+    var saveElderId: @Sendable (Int) async -> Void
+    var getElderId: @Sendable () async -> Int?
 }
 
 // MARK: - Dependency Values
@@ -22,6 +24,7 @@ struct AuthStateClient {
 extension AuthStateClient: DependencyKey {
     static let liveValue: AuthStateClient = {
         let authKey = "invite_code_verified"
+        let elderIdKey = "elder_id"
         
         return AuthStateClient(
             saveAuthState: { inviteCode in
@@ -33,7 +36,16 @@ extension AuthStateClient: DependencyKey {
             },
             clearAuthState: {
                 UserDefaults.standard.removeObject(forKey: authKey)
+                UserDefaults.standard.removeObject(forKey: elderIdKey)
                 print("🗑️ 초대 코드 인증 상태 삭제됨")
+            },
+            saveElderId: { elderId in
+                UserDefaults.standard.set(elderId, forKey: elderIdKey)
+                print("💾 Elder ID 저장됨:", elderId)
+            },
+            getElderId: {
+                let elderId = UserDefaults.standard.integer(forKey: elderIdKey)
+                return elderId == 0 ? nil : elderId
             }
         )
     }()
@@ -43,7 +55,9 @@ extension AuthStateClient: TestDependencyKey {
     static let testValue = AuthStateClient(
         saveAuthState: { _ in },
         getAuthState: { nil },
-        clearAuthState: { }
+        clearAuthState: { },
+        saveElderId: { _ in },
+        getElderId: { nil }
     )
 }
 

@@ -84,16 +84,45 @@ extension VapiClient: DependencyKey {
         let eventStreamManager = EventStreamManager()
 
         return Self(
-            start: {
+            start: { elderId in
+                print("🔄 VapiClient: start() 호출됨 - elderId: \(elderId?.description ?? "nil")")
+                
                 // Audio Session 설정
                 let audioSession = AVAudioSession.sharedInstance()
-                try audioSession.setCategory(.playAndRecord, options: [.allowBluetooth, .defaultToSpeaker])
-                try audioSession.setMode(.voiceChat)
-                try audioSession.setActive(true)
-                print("✅ VapiClient: Audio session configured")
+                do {
+                    try audioSession.setCategory(.playAndRecord, options: [.allowBluetooth, .defaultToSpeaker])
+                    try audioSession.setMode(.voiceChat)
+                    try audioSession.setActive(true)
+                    print("✅ VapiClient: Audio session configured")
+                } catch {
+                    print("❌ VapiClient: Audio session 설정 실패 - \(error.localizedDescription)")
+                    throw error
+                }
+
+                // Metadata 생성
+                var assistantOverrides: [String: Any] = [:]
+                if let elderId = elderId {
+                    assistantOverrides["metadata"] = ["elder_id": elderId]
+                    print("📦 VapiClient: Metadata 생성 완료 - elder_id: \(elderId)")
+                } else {
+                    print("⚠️ VapiClient: elder_id가 없어 metadata 없이 통화 시작")
+                }
 
                 // Vapi 통화 시작
-                try await vapi.start(assistantId: assistantId)
+                print("🚀 VapiClient: Vapi SDK start() 호출 시작...")
+                print("   - assistantId: \(assistantId)")
+                print("   - assistantOverrides: \(assistantOverrides)")
+                
+                do {
+                    try await vapi.start(
+                        assistantId: assistantId,
+                        assistantOverrides: assistantOverrides
+                    )
+                    print("✅ VapiClient: Vapi SDK start() 호출 성공!")
+                } catch {
+                    print("❌ VapiClient: Vapi SDK start() 호출 실패 - \(error.localizedDescription)")
+                    throw error
+                }
             },
             stop: {
                 vapi.stop()
