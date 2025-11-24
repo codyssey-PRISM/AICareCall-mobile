@@ -5,15 +5,17 @@
 //  Created by seungwooKim on 11/8/25.
 //
 
+import ComposableArchitecture
 import UIKit
 import PushKit
 import UserNotifications
 
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
+
+    @Dependency(\.voipTokenClient) var voipTokenClient
     
     var pushRegistry: PKPushRegistry?
-    // CallKit용에서 쓸 UUID
-    var currentCallUUID: UUID?
+    var rootStore: StoreOf<RootFeature>?
     
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
@@ -51,8 +53,10 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         let tokenString = tokenData.map { String(format: "%02x", $0) }.joined()
         print("📞 VoIP token:", tokenString)
         
-        // 여기서 FastAPI 서버에 토큰 보내서 저장
-        // e.g. POST /register-voip-device { voip_token: tokenString }
+        // VoIPTokenClient를 통해 토큰 저장
+        Task {
+            await voipTokenClient.saveToken(tokenString)
+        }
     }
     
     func pushRegistry(_ registry: PKPushRegistry,
@@ -61,12 +65,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         // 필요하면 서버에 삭제 요청
     }
     
-    // AppDelegate 안에 추가
+    // VoIP 푸시 수신 시
     func pushRegistry(_ registry: PKPushRegistry,
                       didReceiveIncomingPushWith payload: PKPushPayload,
                       for type: PKPushType,
                       completion: @escaping () -> Void) {
-                guard type == .voIP else {
+        guard type == .voIP else {
             completion()
             return
         }
@@ -74,13 +78,17 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         print("📬 Received VoIP push:", payload.dictionaryPayload)
 
         let uuid = UUID()
-        self.currentCallUUID = uuid
 
-        CallKitManager.shared.reportIncomingCall(uuid: uuid) { error in
-            if let error = error {
-                print("reportIncomingCall error:", error)
-            } else {
-                print("Incoming call reported via CallKit")
+        // TCA Store에 VoIP 푸시 이벤트 전달
+        rootStore?.send(.voipPushReceived(callUUID: uuid))
+
+        // CallKitClient를 통해 수신 전화 보고
+        Task {
+            do {
+                try await DependencyValues._current.callKitClient.reportIncomingCall(uuid, "AI Assistant")
+                print("✅ Incoming call reported via CallKit")
+            } catch {
+                print("❌ reportIncomingCall error:", error)
             }
             completion()
         }
