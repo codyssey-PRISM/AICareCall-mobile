@@ -58,6 +58,7 @@ struct CallFeature {
 
     @Dependency(\.vapiClient) var vapiClient
     @Dependency(\.callKitClient) var callKitClient
+    @Dependency(\.authStateClient) var authStateClient
     @Dependency(\.continuousClock) var clock
     
     private enum CancelID { 
@@ -75,9 +76,12 @@ struct CallFeature {
             case .onAppear:
                 // 통화 시작
                 return .run { send in
+                    // elder_id 가져오기
+                    let elderId = await authStateClient.getElderId()
+                    
                     // Vapi 통화 시작
                     do {
-                        try await vapiClient.start()
+                        try await vapiClient.start(elderId)
                     } catch {
                         await send(.vapiError(error))
                         return

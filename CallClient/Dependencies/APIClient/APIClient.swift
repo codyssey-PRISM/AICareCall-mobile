@@ -13,7 +13,8 @@ import Foundation
 @DependencyClient
 struct APIClient {
     var verifyInviteCode: @Sendable (String, String) async -> Result<VerifyCodeResponse, Error> = { _, _ in
-            .success(VerifyCodeResponse(success: true, message: "success"))
+            .success(VerifyCodeResponse(success: true,
+                                        message: "success", elder_id: 1, elder_name: "Test Elder"))
     }
 }
 
