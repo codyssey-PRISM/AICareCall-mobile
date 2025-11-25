@@ -14,7 +14,6 @@ struct AiCallApp: App {
 
     static let store = Store(initialState: RootFeature.State()) {
         RootFeature()
-            ._printChanges()
     }
 
     var body: some Scene {

@@ -14,7 +14,6 @@ import Vapi
 extension VapiClient: DependencyKey {
     static let liveValue: VapiClient = {
         let vapi = Vapi(publicKey: "ee7fb4cd-eeff-4146-963f-5292ee17a5a4")
-        let assistantId = "4de84fad-6774-45cb-b865-ee77a7b2485c"
 
         // Vapi 이벤트를 AsyncStream으로 변환하기 위한 Continuation
         class EventStreamManager {
@@ -84,8 +83,9 @@ extension VapiClient: DependencyKey {
         let eventStreamManager = EventStreamManager()
 
         return Self(
-            start: { elderId in
-                print("🔄 VapiClient: start() 호출됨 - elderId: \(elderId?.description ?? "nil")")
+            start: { assistantConfig, elderId in
+                print("🔄 VapiClient: start() 호출됨 - custom assistant config 사용")
+                print("   - elder_id: \(elderId)")
                 
                 // Audio Session 설정
                 let audioSession = AVAudioSession.sharedInstance()
@@ -99,25 +99,12 @@ extension VapiClient: DependencyKey {
                     throw error
                 }
 
-                // Metadata 생성
-                var assistantOverrides: [String: Any] = [:]
-                if let elderId = elderId {
-                    assistantOverrides["metadata"] = ["elder_id": elderId]
-                    print("📦 VapiClient: Metadata 생성 완료 - elder_id: \(elderId)")
-                } else {
-                    print("⚠️ VapiClient: elder_id가 없어 metadata 없이 통화 시작")
-                }
-
-                // Vapi 통화 시작
+                // Vapi 통화 시작 (custom assistant config 사용)
                 print("🚀 VapiClient: Vapi SDK start() 호출 시작...")
-                print("   - assistantId: \(assistantId)")
-                print("   - assistantOverrides: \(assistantOverrides)")
+                print("   - metadata: elder_id = \(elderId)")
                 
                 do {
-                    try await vapi.start(
-                        assistantId: assistantId,
-                        assistantOverrides: assistantOverrides
-                    )
+                    try await vapi.start(assistant: assistantConfig, metadata: ["elder_id": elderId])
                     print("✅ VapiClient: Vapi SDK start() 호출 성공!")
                 } catch {
                     print("❌ VapiClient: Vapi SDK start() 호출 실패 - \(error.localizedDescription)")

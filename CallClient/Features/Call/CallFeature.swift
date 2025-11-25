@@ -59,6 +59,7 @@ struct CallFeature {
     @Dependency(\.vapiClient) var vapiClient
     @Dependency(\.callKitClient) var callKitClient
     @Dependency(\.authStateClient) var authStateClient
+    @Dependency(\.apiClient) var apiClient
     @Dependency(\.continuousClock) var clock
     
     private enum CancelID { 
@@ -76,18 +77,50 @@ struct CallFeature {
             case .onAppear:
                 // 통화 시작
                 return .run { send in
-                    // elder_id 가져오기
+                    // 1. elder_id 가져오기
                     let elderId = await authStateClient.getElderId()
                     
-                    // Vapi 통화 시작
+                    guard let elderId = elderId else {
+                        await send(.vapiError(VapiError(message: "Elder ID를 찾을 수 없습니다.")))
+                        return
+                    }
+                    
+                    print("📱 CallFeature: elder_id 확인 - \(elderId)")
+                    
+                    // 2. API에서 assistant config 가져오기
+                    print("🌐 CallFeature: Assistant config API 호출 시작...")
+                    let configResult = await apiClient.getAssistantConfig(elderId)
+                    
+                    let assistantConfig: [String: Any]
+                    switch configResult {
+                    case .success(let response):
+                        print("✅ CallFeature: Assistant config 수신 성공")
+                        assistantConfig = response.toDictionary()
+                        
+                        if assistantConfig.isEmpty {
+                            await send(.vapiError(VapiError(message: "Assistant 설정을 변환하는데 실패했습니다.")))
+                            return
+                        }
+                        
+                    case .failure(let error):
+                        print("❌ CallFeature: Assistant config 수신 실패 - \(error)")
+                        await send(.vapiError(VapiError(message: "Assistant 설정을 가져오는데 실패했습니다: \(error.localizedDescription)")))
+                        return
+                    }
+                    
+                    // 3. Vapi 통화 시작 (custom config + elder_id 사용)
+                    print("🚀 CallFeature: Vapi 통화 시작...")
                     do {
-                        try await vapiClient.start(elderId)
+                        try await vapiClient.start(assistantConfig, elderId)
+                        print("✅ CallFeature: Vapi 통화 시작 성공")
                     } catch {
+                        print("❌ CallFeature: Vapi 통화 시작 실패 - \(error)")
                         await send(.vapiError(error))
                         return
                     }
 
-                    // Vapi 이벤트 스트림 구독
+                    // 4. Vapi 이벤트 스트림 구독
+                    print("👂 CallFeature: Vapi 이벤트 스트림 구독 시작")
                     for await event in vapiClient.eventStream() {
                         await send(.vapiEvent(event))
                     }

@@ -13,6 +13,7 @@ import UserNotifications
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
 
     @Dependency(\.voipTokenClient) var voipTokenClient
+    @Dependency(\.callKitClient) var callKitClient
     
     var pushRegistry: PKPushRegistry?
     var rootStore: StoreOf<RootFeature>?
@@ -79,19 +80,27 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         let uuid = UUID()
 
-        // TCA Store에 VoIP 푸시 이벤트 전달
-        rootStore?.send(.voipPushReceived(callUUID: uuid))
-
-        // CallKitClient를 통해 수신 전화 보고
-        Task {
+        // ⚠️ 중요: VoIP 푸시를 받으면 즉시 CallKit 호출해야 함 (Apple 정책)
+        // 고우선순위 Task로 즉시 실행하여 앱 강제종료 방지
+        Task.detached(priority: .userInitiated) { [weak self] in
+            guard let self = self else { return }
+            
             do {
-                try await DependencyValues._current.callKitClient.reportIncomingCall(uuid, "AI Assistant")
+                try await self.callKitClient.reportIncomingCall(uuid, "AI Assistant")
                 print("✅ Incoming call reported via CallKit")
+                
+                // CallKit 호출 성공 후 TCA Store에 이벤트 전달
+                await MainActor.run {
+                    self.rootStore?.send(.voipPushReceived(callUUID: uuid))
+                }
             } catch {
                 print("❌ reportIncomingCall error:", error)
+                // 에러가 발생해도 최소한 시도는 했으므로 시스템이 덜 엄격함
             }
-            completion()
         }
+        
+        // completion()을 즉시 호출하여 PushKit에 빠르게 응답
+        completion()
     }
     
     private func setupVoIPPush() {

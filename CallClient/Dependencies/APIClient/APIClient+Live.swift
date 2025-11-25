@@ -16,7 +16,7 @@ extension APIClient: DependencyKey {
             do {
                 // Mac 로컬 서버 주소 (실기기 테스트용)
                 // localhost는 실기기에서 작동하지 않으므로 Mac의 IP 사용
-                let baseURL = "http://10.19.211.245:8000"
+                let baseURL = "http://192.168.0.44:8000"
                 let url = URL(string: "\(baseURL)/elder-app/invitation-code")!
                 
                 print("🌐 API 요청: \(url.absoluteString)")
@@ -55,6 +55,48 @@ extension APIClient: DependencyKey {
                 }
                 
                 let result = try JSONDecoder().decode(VerifyCodeResponse.self, from: data)
+                return .success(result)
+                
+            } catch {
+                print("❌ API Error:", error)
+                return .failure(error)
+            }
+        },
+        getAssistantConfig: { elderId in
+            do {
+                // Mac 로컬 서버 주소 (실기기 테스트용)
+                let baseURL = "http://192.168.0.44:8000"
+                let url = URL(string: "\(baseURL)/elder-app/assistant-config/\(elderId)")!
+                
+                print("🌐 API 요청: \(url.absoluteString)")
+                print("📤 elder_id: \(elderId)")
+                
+                var request = URLRequest(url: url)
+                request.httpMethod = "GET"
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                
+                let (data, response) = try await URLSession.shared.data(for: request)
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("❌ API 응답 에러: Invalid HTTP Response")
+                    throw APIError.invalidResponse
+                }
+                
+                print("📥 API 응답: HTTP \(httpResponse.statusCode)")
+                
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    print("❌ API 에러: HTTP \(httpResponse.statusCode)")
+                    if let errorBody = String(data: data, encoding: .utf8) {
+                        print("   에러 내용: \(errorBody)")
+                    }
+                    throw APIError.httpError(statusCode: httpResponse.statusCode)
+                }
+                
+                if let responseBody = String(data: data, encoding: .utf8) {
+                    print("✅ API 성공 응답 (일부): \(responseBody.prefix(200))...")
+                }
+                
+                let result = try JSONDecoder().decode(AssistantConfigResponse.self, from: data)
                 return .success(result)
                 
             } catch {
