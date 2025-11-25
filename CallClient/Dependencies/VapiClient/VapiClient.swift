@@ -12,7 +12,7 @@ import Foundation
 
 @DependencyClient
 struct VapiClient {
-    var start: @Sendable (Int?) async throws -> Void
+    var start: @Sendable ([String: Any], Int) async throws -> Void
     var stop: @Sendable () -> Void
     var setMuted: @Sendable (Bool) async throws -> Void
     var eventStream: @Sendable () -> AsyncStream<VapiEvent> = { AsyncStream { _ in } }
