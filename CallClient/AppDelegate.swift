@@ -13,7 +13,6 @@ import UserNotifications
 class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDelegate, PKPushRegistryDelegate {
 
     @Dependency(\.voipTokenClient) var voipTokenClient
-    @Dependency(\.callKitClient) var callKitClient
     
     var pushRegistry: PKPushRegistry?
     var rootStore: StoreOf<RootFeature>?
@@ -81,26 +80,30 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
         let uuid = UUID()
 
         // ⚠️ 중요: VoIP 푸시를 받으면 즉시 CallKit 호출해야 함 (Apple 정책)
-        // 고우선순위 Task로 즉시 실행하여 앱 강제종료 방지
-        Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self = self else { return }
-            
-            do {
-                try await self.callKitClient.reportIncomingCall(uuid, "AI Assistant")
-                print("✅ Incoming call reported via CallKit")
-                
-                // CallKit 호출 성공 후 TCA Store에 이벤트 전달
-                await MainActor.run {
-                    self.rootStore?.send(.voipPushReceived(callUUID: uuid))
-                }
-            } catch {
-                print("❌ reportIncomingCall error:", error)
-                // 에러가 발생해도 최소한 시도는 했으므로 시스템이 덜 엄격함
-            }
-        }
+        // TCA 의존성을 거치지 않고 직접 CallKitManager.shared를 호출하여
+        // 앱이 백그라운드/종료 상태에서도 즉시 CallKit UI가 표시되도록 함
         
-        // completion()을 즉시 호출하여 PushKit에 빠르게 응답
-        completion()
+        // 1️⃣ 즉시 CallKit에 통화 보고 - 동기 호출로 지연 최소화
+        CallKitManager.shared.reportIncomingCall(
+            uuid: uuid,
+            callerName: "Sori(소리) AI"
+        ) { [weak self] error in
+            if let error = error {
+                print("❌ [AppDelegate] reportIncomingCall error:", error)
+                completion()
+                return
+            }
+            
+            print("✅ [AppDelegate] Incoming call reported successfully")
+            
+            // 2️⃣ CallKit 호출 성공 후 TCA Store에 이벤트 전달 (비동기로 나중에)
+            DispatchQueue.main.async {
+                self?.rootStore?.send(.voipPushReceived(callUUID: uuid))
+            }
+            
+            // 3️⃣ completion 호출 (Apple에 처리 완료 알림)
+            completion()
+        }
     }
     
     private func setupVoIPPush() {

@@ -16,7 +16,7 @@ extension APIClient: DependencyKey {
             do {
                 // Mac 로컬 서버 주소 (실기기 테스트용)
                 // localhost는 실기기에서 작동하지 않으므로 Mac의 IP 사용
-                let baseURL = "http://192.168.0.44:8000"
+                let baseURL = "https://aicarecall-server-production.up.railway.app"
                 let url = URL(string: "\(baseURL)/elder-app/invitation-code")!
                 
                 print("🌐 API 요청: \(url.absoluteString)")
@@ -65,7 +65,7 @@ extension APIClient: DependencyKey {
         getAssistantConfig: { elderId in
             do {
                 // Mac 로컬 서버 주소 (실기기 테스트용)
-                let baseURL = "http://192.168.0.44:8000"
+                let baseURL = "https://aicarecall-server-production.up.railway.app"
                 let url = URL(string: "\(baseURL)/elder-app/assistant-config/\(elderId)")!
                 
                 print("🌐 API 요청: \(url.absoluteString)")
