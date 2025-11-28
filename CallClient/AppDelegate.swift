@@ -79,17 +79,29 @@ class AppDelegate: NSObject, UIApplicationDelegate, UNUserNotificationCenterDele
 
         let uuid = UUID()
 
-        // TCA Store에 VoIP 푸시 이벤트 전달
-        rootStore?.send(.voipPushReceived(callUUID: uuid))
-
-        // CallKitClient를 통해 수신 전화 보고
-        Task {
-            do {
-                try await DependencyValues._current.callKitClient.reportIncomingCall(uuid, "AI Assistant")
-                print("✅ Incoming call reported via CallKit")
-            } catch {
-                print("❌ reportIncomingCall error:", error)
+        // ⚠️ 중요: VoIP 푸시를 받으면 즉시 CallKit 호출해야 함 (Apple 정책)
+        // TCA 의존성을 거치지 않고 직접 CallKitManager.shared를 호출하여
+        // 앱이 백그라운드/종료 상태에서도 즉시 CallKit UI가 표시되도록 함
+        
+        // 1️⃣ 즉시 CallKit에 통화 보고 - 동기 호출로 지연 최소화
+        CallKitManager.shared.reportIncomingCall(
+            uuid: uuid,
+            callerName: "Sori(소리) AI"
+        ) { [weak self] error in
+            if let error = error {
+                print("❌ [AppDelegate] reportIncomingCall error:", error)
+                completion()
+                return
             }
+            
+            print("✅ [AppDelegate] Incoming call reported successfully")
+            
+            // 2️⃣ CallKit 호출 성공 후 TCA Store에 이벤트 전달 (비동기로 나중에)
+            DispatchQueue.main.async {
+                self?.rootStore?.send(.voipPushReceived(callUUID: uuid))
+            }
+            
+            // 3️⃣ completion 호출 (Apple에 처리 완료 알림)
             completion()
         }
     }

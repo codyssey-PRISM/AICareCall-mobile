@@ -13,8 +13,9 @@ import Foundation
 @DependencyClient
 struct CallKitClient {
     var reportIncomingCall: @Sendable (UUID, String) async throws -> Void
-    var startOutgoingCall: @Sendable (UUID, String) -> Void
-    var endCall: @Sendable (UUID) -> Void
+    var reportIncomingCallImmediately: @Sendable @MainActor (UUID, String, @escaping (Error?) -> Void) -> Void
+    var startOutgoingCall: @Sendable (UUID, String) async -> Void
+    var endCall: @Sendable (UUID) async -> Void
     var eventStream: @Sendable () -> AsyncStream<CallKitEvent> = { AsyncStream<CallKitEvent> { _ in } }
 }
 

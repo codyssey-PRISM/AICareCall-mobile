@@ -16,6 +16,9 @@ struct APIClient {
             .success(VerifyCodeResponse(success: true,
                                         message: "success", elder_id: 1, elder_name: "Test Elder"))
     }
+    var getAssistantConfig: @Sendable (Int) async -> Result<AssistantConfigResponse, Error> = { _ in
+            .failure(APIError.invalidResponse)
+    }
 }
 
 // MARK: - Dependency Values
